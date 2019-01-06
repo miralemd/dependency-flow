@@ -1,0 +1,40 @@
+<html>
+  <head>
+      <style>
+          html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+          }
+      
+          .circles circle {
+            fill: rgba(0, 0, 0, 0.1);
+            opacity: 0.3;
+          }
+      
+          .circles circle.focus {
+            stroke: rgba(0, 0, 0, 0.6);
+            stroke-width: 1;
+          }
+      
+          .circles circle.highlight {
+            fill: rgba(0, 0, 100, 0.1);
+            opacity: 0.8;
+          }
+      
+          .links path {
+            fill: none;
+          }
+      
+          text {
+            font-family: Arial;
+            text-anchor: middle;
+            opacity: 0.5;
+          }
+        </style>
+  </head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg"></svg>
+  <script src="./index.js"></script>
+</body>
+</html>

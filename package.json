@@ -1,0 +1,25 @@
+{
+  "name": "dependency-flow",
+  "version": "0.1.0",
+  "description": "",
+  "keywords": [],
+  "author": "miralemd",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "web"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "eslint": "^5.11.1",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.14.0"
+  },
+  "dependencies": {
+    "d3": "^5.7.0",
+    "parcel-bundler": "^1.11.0",
+    "ws": "^6.1.2"
+  }
+}

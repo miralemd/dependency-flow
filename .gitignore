@@ -1,0 +1,8 @@
+*.rej
+*.tmp
+*.log
+.DS_Store
+.vscode/
+.cache/
+node_modules/
+dist/
