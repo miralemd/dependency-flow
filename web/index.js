@@ -20,7 +20,7 @@ function flow() {
 
   const pack = d3.pack()
     .size([size, size])
-    .padding(2);
+    .padding(0);
 
   const zoomer = d3.zoom().on('zoom', () => {
     zoomTo(d3.event.transform);
@@ -43,21 +43,25 @@ function flow() {
       let uid = 0;
       links.length = 0;
 
-      const h = d3.hierarchy(data)
-        // .sum(d => d.size)
-        .sum(() => 1)
-        .sort((a, b) => b.value - a.value);
+      const h = d3.hierarchy(data);
 
-      root = pack(h);
-
-      let maxDistance = 0;
-
-      root.eachBefore((n) => {
+      h.eachBefore((n) => {
         const p = n.parent ? n.parent.data.id : '';
         n.data.id = n.parent ? `${p ? `${p}/` : p}${n.data.name}` : '';
         n.data.url = `uid-${++uid}`;
+        n.data.displayName = n.data.displayName || n.data.name;
+        if (n.children && n.children.length === 1) {
+          n.children[0].data.displayName = p ? `${n.data.displayName}/${n.children[0].data.name}` : n.children[0].data.name;
+          n.data.displayName = '';
+        }
       });
-      map = new Map(root.descendants().map(d => [d.data.id, d]));
+      map = new Map(h.descendants().map(d => [d.data.id, d]));
+
+      h.sum(() => 1)
+        .sort((a, b) => b.value - a.value);
+
+      root = pack(h);
+      let maxDistance = 0;
 
       for (const leaf of root.leaves()) {
         for (const i of leaf.data.imports) {
@@ -106,9 +110,8 @@ function flow() {
         .enter()
         .append('text')
         .merge(label)
-        .text(d => d.data.name);
+        .text(d => d.data.displayName);
 
-      // zoomTo(d3.zoomIdentity);
       svg.call(zoomer.transform, d3.zoomIdentity);
     },
   };
