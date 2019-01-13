@@ -8,7 +8,7 @@ const ws = require('ws');
 const entryFiles = path.join(__dirname, './web/index.html');
 
 module.exports = () => {
-  let currentTable;
+  let currentData;
 
   const opts = {
     port: 1234,
@@ -20,8 +20,8 @@ module.exports = () => {
   });
 
   wss.on('connection', (client) => {
-    if (currentTable) {
-      client.send(currentTable);
+    if (currentData) {
+      client.send(currentData);
     }
   });
 
@@ -36,11 +36,11 @@ module.exports = () => {
         s.close();
       });
     },
-    update(table) {
+    update(data) {
       wss.clients.forEach((c) => {
-        c.send(table);
+        c.send(data);
       });
-      currentTable = table;
+      currentData = data;
     },
   };
 };

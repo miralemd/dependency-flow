@@ -39,7 +39,7 @@ function flow() {
   let label;
 
   return {
-    update(data) {
+    update(data, modules) {
       let uid = 0;
       links.length = 0;
 
@@ -54,10 +54,13 @@ function flow() {
           n.children[0].data.displayName = p ? `${n.data.displayName}/${n.children[0].data.name}` : n.children[0].data.name;
           n.data.displayName = '';
         }
+        if (modules[n.data.id]) {
+          n.data.size = modules[n.data.id].size;
+        }
       });
       map = new Map(h.descendants().map(d => [d.data.id, d]));
 
-      h.sum(() => 1)
+      h.sum(d => d.size || 0)
         .sort((a, b) => b.value - a.value);
 
       root = pack(h);
@@ -181,5 +184,7 @@ const f = flow();
 
 const ws = new WebSocket('ws://localhost:5051');
 ws.addEventListener('message', (event) => {
-  f.update(tableToTree(JSON.parse(event.data)));
+  const data = JSON.parse(event.data);
+  const { links, modules } = data;
+  f.update(tableToTree(links), modules);
 });
