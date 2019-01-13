@@ -1,44 +1,90 @@
 #!/usr/bin/env node
 
+const http = require('http');
 const path = require('path');
-
-const Bundler = require('parcel-bundler');
+const fs = require('fs');
 const ws = require('ws');
 
-const entryFiles = path.join(__dirname, './web/index.html');
+const getPort = require('get-port');
 
-module.exports = () => {
+const onKill = (cb) => {
+  ['SIGINT', 'SIGTERM'].forEach((signal) => {
+    process.on(signal, () => {
+      cb();
+      process.exit();
+    });
+  });
+};
+
+const serve = (port) => {
+  const server = http.createServer((request, response) => {
+    const { url } = request;
+    const resource = url.split('?')[0];
+
+    if (resource === '/') {
+      fs.readFile(path.resolve(__dirname, './web/index.html'), (err, data) => {
+        response.statusCode = 200;
+        response.setHeader('Content-type', 'text/html');
+        response.end(data);
+      });
+    } else if (resource === '/index.js') {
+      fs.readFile(path.resolve(__dirname, './dist/bundle.js'), (err, data) => {
+        response.statusCode = 200;
+        response.setHeader('Content-type', 'text/javascript');
+        response.end(data);
+      });
+    } else {
+      response.statusCode = 404;
+      response.end('Nope');
+    }
+  }).listen(port);
+
+  return server;
+};
+
+module.exports = (options = {}) => {
   let currentData;
 
-  const opts = {
-    port: 1234,
-    wsPort: 5051,
+  const servers = Promise.all([
+    options.port || getPort({ port: [3001, 3002, 3003, 3004, 3005] }),
+    getPort({ port: [5051, 5052, 5053, 5054, 5055] }),
+  ]).then(([port, wsPort]) => {
+    const wss = new ws.Server({
+      port: wsPort,
+    });
+
+    wss.on('connection', (client) => {
+      if (currentData) {
+        client.send(currentData);
+      }
+    });
+
+    const web = serve(port);
+
+    console.log(`Running dependency flow at: \x1b[32mhttp://localhost:${port}?ws=localhost:${wsPort}\x1b[0m`);
+
+    return {
+      wss,
+      web,
+    };
+  });
+
+  const close = () => {
+    servers.then(({ wss, web }) => {
+      wss.close();
+      web.close();
+    });
   };
 
-  const wss = new ws.Server({
-    port: opts.wsPort,
-  });
-
-  wss.on('connection', (client) => {
-    if (currentData) {
-      client.send(currentData);
-    }
-  });
-
-  const bundler = new Bundler(entryFiles, {});
-
-  const server = bundler.serve();
+  onKill(close);
 
   return {
-    close() {
-      wss.close();
-      server.then((s) => {
-        s.close();
-      });
-    },
+    close,
     update(data) {
-      wss.clients.forEach((c) => {
-        c.send(data);
+      servers.then(({ wss }) => {
+        wss.clients.forEach((c) => {
+          c.send(data);
+        });
       });
       currentData = data;
     },

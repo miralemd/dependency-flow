@@ -182,9 +182,17 @@ function flow() {
 
 const f = flow();
 
-const ws = new WebSocket('ws://localhost:5051');
-ws.addEventListener('message', (event) => {
-  const data = JSON.parse(event.data);
-  const { links, modules } = data;
-  f.update(tableToTree(links), modules);
+const params = {};
+(location.search[0] === '?' ? location.search.slice(1).split('&') : []).forEach((param) => {
+  const [name, value] = param.split('=');
+  params[name] = value;
 });
+
+if (params.ws) {
+  const ws = new WebSocket(`ws://${params.ws}`);
+  ws.addEventListener('message', (event) => {
+    const data = JSON.parse(event.data);
+    const { links, modules } = data;
+    f.update(tableToTree(links), modules);
+  });
+}
