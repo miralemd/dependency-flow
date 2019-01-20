@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const ws = require('ws');
 
+const mkdirp = require('mkdirp');
+
 const getPort = require('get-port');
 
 const onKill = (cb) => {
@@ -68,7 +70,7 @@ module.exports = {
       name: 'dependency-flow',
       ...options,
     };
-    Promise.all([
+    return Promise.all([
       getFile('./dist/bundle.js'),
       getFile('./web/index.html'),
     ]).then(([bundle, html]) => {
@@ -82,8 +84,13 @@ module.exports = {
 
       const p = path.resolve(opts.dir, `${opts.name}.html`);
 
-      fs.writeFileSync(p, s);
-      console.log(`\x1b[32mCreated \x1b[1m${p}\x1b[0m`);
+      return new Promise((resolve) => {
+        mkdirp(opts.dir, () => {
+          fs.writeFileSync(p, s);
+          console.log(`\x1b[32mCreated \x1b[1m${p}\x1b[0m`);
+          resolve();
+        });
+      });
     });
   },
   /**

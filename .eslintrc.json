@@ -10,5 +10,20 @@
     "no-param-reassign": 0,
     "no-use-before-define": 0,
     "no-restricted-syntax": 0
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.spec.js"],
+      "env": {
+        "browser": false,
+        "mocha": true
+      },
+      "globals": {
+        "chai": false,
+        "expect": false,
+        "sinon": false,
+        "page": false
+      }
+    }
+  ]
 }
