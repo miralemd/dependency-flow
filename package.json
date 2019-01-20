@@ -1,8 +1,12 @@
 {
   "name": "dependency-flow",
-  "version": "0.2.0",
-  "description": "",
-  "keywords": [],
+  "version": "0.3.0",
+  "description": "Visualize the flow of module dependencies",
+  "keywords": [
+    "dependencies",
+    "modules",
+    "d3"
+  ],
   "author": "miralemd",
   "license": "MIT",
   "main": "index.js",
@@ -12,7 +16,8 @@
   ],
   "scripts": {
     "build": "rollup -c rollup.config.js",
-    "test": "aw puppeteer -c aw.config.js"
+    "test": "aw puppeteer -c aw.config.js",
+    "prepublishOnly": "yarn run build"
   },
   "devDependencies": {
     "after-work.js": "^4.3.2",
