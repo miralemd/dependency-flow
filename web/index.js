@@ -120,6 +120,9 @@ function flow() {
   };
 
   function zoomTo(t) {
+    if (!root) {
+      return;
+    }
     const { k } = t;
     const dx = root.x - t.x / k;
     const dy = root.y - t.y / k;
@@ -182,14 +185,10 @@ function flow() {
 
 const f = flow();
 
-const params = {};
-(location.search[0] === '?' ? location.search.slice(1).split('&') : []).forEach((param) => {
-  const [name, value] = param.split('=');
-  params[name] = value;
-});
-
-if (params.ws) {
-  const ws = new WebSocket(`ws://${params.ws}`);
+if (window.dependencies) {
+  f.update(tableToTree(window.dependencies.links), window.dependencies.modules);
+} else if (window.WSPath) {
+  const ws = new WebSocket(`ws://${window.WSPath}`);
   ws.addEventListener('message', (event) => {
     const data = JSON.parse(event.data);
     const { links, modules } = data;
