@@ -1,10 +1,48 @@
 import * as d3 from 'd3';
 
-import tableToTree from './table-to-tree';
+function createTree(leaves) {
+  const map = new Map();
+
+  map.set('__root__', {
+    id: '__root__',
+    children: [],
+  });
+
+  Object.keys(leaves).forEach((leaf) => {
+    const parts = leaf.split('/');
+    let path = '';
+    parts.forEach((p, i) => {
+      const parent = map.get(path || '__root__');
+      path = parts.slice(0, i + 1).join('/');
+      if (!path && leaf[0] === '/') {
+        path = '/';
+      }
+      if (!map.has(path)) {
+        map.set(path, {
+          ...(path === leaf ? leaves[leaf] : {}),
+          id: path,
+          name: p,
+          children: [],
+        });
+        parent.children.push(map.get(path));
+      }
+    });
+  });
+
+  return map.get('__root__');
+}
+
 
 function flow() {
   const links = [];
   const rect = document.body.getBoundingClientRect();
+
+  let state = {
+    animate: false,
+    tension: 0.9,
+    links: [],
+    modules: {},
+  };
 
   const svg = d3.select('svg');
   svg.append('g').attr('class', 'circles');
@@ -39,23 +77,35 @@ function flow() {
   let label;
 
   return {
-    update(data, modules) {
+    setState(s) {
+      state = {
+        ...state,
+        ...s,
+      };
+
+      state.tree = createTree(state.modules);
+      state.hierarchy = d3.hierarchy(state.tree);
+
+      this.update();
+    },
+    getState() {
+      return state;
+    },
+    update() {
       let uid = 0;
       links.length = 0;
 
-      const h = d3.hierarchy(data);
+      svg.select('.links').classed('animate', state.animate);
+
+      const h = state.hierarchy;
 
       h.eachBefore((n) => {
         const p = n.parent ? n.parent.data.id : '';
-        n.data.id = n.parent ? `${p ? `${p}/` : p}${n.data.name}` : '';
         n.data.url = `uid-${++uid}`;
         n.data.displayName = n.data.displayName || n.data.name;
         if (n.children && n.children.length === 1) {
           n.children[0].data.displayName = p ? `${n.data.displayName}/${n.children[0].data.name}` : n.children[0].data.name;
           n.data.displayName = '';
-        }
-        if (modules[n.data.id]) {
-          n.data.size = modules[n.data.id].size;
         }
       });
       map = new Map(h.descendants().map(d => [d.data.id, d]));
@@ -66,18 +116,27 @@ function flow() {
       root = pack(h);
       let maxDistance = 0;
 
-      for (const leaf of root.leaves()) {
-        for (const i of leaf.data.imports) {
-          const n = map.get(i);
-          const common = leaf.path(n);
-          maxDistance = Math.max(common.length, maxDistance);
-          links.push({
-            source: leaf,
-            target: n,
-            chain: common,
-          });
+      state.links.forEach((l) => {
+        const source = map.get(l[0]);
+        const target = map.get(l[1]);
+        if (!source || !target) {
+          console.warn('missing link', l);
+          return;
         }
-      }
+        const chain = source.path(target);
+        maxDistance = Math.max(chain.length, maxDistance);
+        const start = {
+          data: chain[0].data,
+          x: chain[0].x,
+          y: chain[0].y,
+        };
+        links.push({
+          source,
+          target,
+          chain: [start, ...chain.slice(1)],
+        });
+      });
+
       const distance = d3.scaleSequential(d3.interpolateRdYlGn).domain([maxDistance, 3]);
 
       node = svg.select('.circles')
@@ -131,7 +190,7 @@ function flow() {
     node.attr('r', d => d.r * t.k);
 
     lineFn = d3.line()
-      .curve(d3.curveBundle.beta(0.8))
+      .curve(d3.curveBundle.beta(state.tension))
       .y(d => (d.y - dy) * k)
       .x(d => (d.x - dx) * k);
 
@@ -184,14 +243,21 @@ function flow() {
 }
 
 const f = flow();
+window.flow = f;
 
 if (window.dependencies) {
-  f.update(tableToTree(window.dependencies.links), window.dependencies.modules);
+  f.setState({
+    links: window.dependencies.links,
+    modules: window.dependencies.modules,
+  });
 } else if (window.WSPath) {
   const ws = new WebSocket(`ws://${window.WSPath}`);
   ws.addEventListener('message', (event) => {
     const data = JSON.parse(event.data);
     const { links, modules } = data;
-    f.update(tableToTree(links), modules);
+    f.setState({
+      links,
+      modules,
+    });
   });
 }

@@ -5,6 +5,7 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            font-family: Arial;
           }
       
           .circles circle {
@@ -24,6 +25,16 @@
       
           .links path {
             fill: none;
+            stroke-width: 1px;
+          }
+
+          .links.animate path {
+            animation: flow 1s linear infinite;
+            stroke-dasharray: 8 2;
+          }
+
+          @keyframes flow {
+            100% { stroke-dashoffset: 10; }
           }
       
           text {
