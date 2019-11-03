@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import graphFn from './graph';
 
 function createTree(leaves) {
   const map = new Map();
@@ -85,6 +86,8 @@ function flow() {
 
       state.tree = createTree(state.modules);
       state.hierarchy = d3.hierarchy(state.tree);
+
+      state.graph = graphFn(state.links);
 
       this.update();
     },
@@ -203,27 +206,31 @@ function flow() {
   }
 
   function filterLinks() {
-    const nn = linkFocus;
-    const affectedNodes = {};
-
-    const source = linkFocus ? nn.data.id : null;
-    const filtered = linkFocus ? links.filter((link) => {
-      const b = link.source.data.id.indexOf(source) === 0
-        || link.target.data.id.indexOf(source) === 0;
-      if (b) {
-        link.chain.forEach((c) => {
-          affectedNodes[c.data.id] = true;
-        });
-      }
-      return b;
-    }) : links;
+    const affectedSet = new Set();
+    if (linkFocus && linkFocus.children && linkFocus.children.length) {
+      const files = linkFocus.leaves();
+      files.forEach((file) => {
+        state.graph.affected(file.data.id).forEach(id => affectedSet.add(id));
+      });
+    } else if (linkFocus) {
+      state.graph.affected(linkFocus.data.id).forEach(id => affectedSet.add(id));
+    }
+    const affectedNodes = [...affectedSet];
+    const filtered = linkFocus ? links
+      .filter(link => affectedNodes
+        .indexOf(link.source.data.id) !== -1 || affectedNodes.indexOf(link.target.data.id) !== -1)
+      : links;
 
     paths.style('display', d => (filtered.indexOf(d) !== -1 ? 'inline' : 'none'));
 
     d3.selectAll('.highlight').classed('highlight', false);
 
-    Object.keys(affectedNodes).forEach((key) => {
+    affectedNodes.forEach((key) => {
       const nnn = map.get(key);
+      if (!nnn) {
+        console.warn('missing node', key);
+        return;
+      }
       d3.select(`#${nnn.data.url}`).classed('highlight', true);
     });
   }
