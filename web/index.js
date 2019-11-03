@@ -30,16 +30,41 @@ function createTree(leaves) {
     });
   });
 
-  return map.get('__root__');
+  return map;
 }
 
+// collapse folders containing only one child to avoid deep nesting
+function collapse() {
+  function next(node) {
+    if (node.children.length === 1) {
+      return next(node.children[0]);
+    }
+    return [node];
+  }
+
+  function children(d) {
+    if (d.children.length === 1) {
+      return next(d.children[0]);
+    }
+    if (d.children.length > 1) {
+      const arr = [];
+      d.children.forEach(n => arr.push(...next(n)));
+      return arr;
+    }
+    return d.children;
+  }
+
+  return children;
+}
 
 function flow() {
   const links = [];
   const rect = document.body.getBoundingClientRect();
 
   let state = {
-    animate: false,
+    animate: true,
+    collapse: true,
+    padding: 2,
     tension: 0.9,
     links: [],
     modules: {},
@@ -48,7 +73,9 @@ function flow() {
   const svg = d3.select('svg');
   svg.append('g').attr('class', 'circles');
   svg.append('g').attr('class', 'links').attr('pointer-events', 'none');
-  svg.append('g').attr('class', 'labels').attr('pointer-events', 'none');
+  svg.append('g')
+    .attr('class', 'labels')
+    .attr('pointer-events', 'none');
   svg.attr('width', rect.width);
   svg.attr('height', rect.height - 4);
   svg.attr('viewBox', `-${rect.width / 2} -${rect.height / 2} ${rect.width} ${rect.height}`);
@@ -58,8 +85,7 @@ function flow() {
   const size = Math.min(rect.width, rect.height) * 0.9;
 
   const pack = d3.pack()
-    .size([size, size])
-    .padding(0);
+    .size([size, size]);
 
   const zoomer = d3.zoom().on('zoom', () => {
     zoomTo(d3.event.transform);
@@ -85,10 +111,11 @@ function flow() {
       };
 
       state.tree = createTree(state.modules);
-      state.hierarchy = d3.hierarchy(state.tree);
+      state.hierarchy = d3.hierarchy(state.tree.get('__root__'), state.collapse ? collapse(state.tree) : undefined);
 
       state.graph = graphFn(state.links);
 
+      pack.padding(state.padding);
       this.update();
     },
     getState() {
@@ -106,7 +133,10 @@ function flow() {
         const p = n.parent ? n.parent.data.id : '';
         n.data.url = `uid-${++uid}`;
         n.data.displayName = n.data.displayName || n.data.name;
-        if (n.children && n.children.length === 1) {
+        if (state.collapse) {
+          const sub = n.data.id.indexOf(p) === 0 ? n.data.id.replace(p, '') : n.data.name;
+          n.data.displayName = sub;
+        } else if (n.children && n.children.length === 1) {
           n.children[0].data.displayName = p ? `${n.data.displayName}/${n.children[0].data.name}` : n.children[0].data.name;
           n.data.displayName = '';
         }
@@ -122,8 +152,12 @@ function flow() {
       state.links.forEach((l) => {
         const source = map.get(l[0]);
         const target = map.get(l[1]);
-        if (!source || !target) {
-          console.warn('missing link', l);
+        if (!source) {
+          console.warn('missing link source node: ', l[0]);
+          return;
+        }
+        if (!target) {
+          console.warn('missing link target node: ', l[1]);
           return;
         }
         const chain = source.path(target);
@@ -140,7 +174,7 @@ function flow() {
         });
       });
 
-      const distance = d3.scaleSequential(d3.interpolateRdYlGn).domain([maxDistance, 3]);
+      const cellColor = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, root.height * 2]);
 
       node = svg.select('.circles')
         .selectAll('circle')
@@ -153,7 +187,9 @@ function flow() {
         .append('circle')
         .on('click', onNodeClick)
         .merge(node)
-        .attr('id', d => `${d.data.url}`);
+        .attr('id', d => `${d.data.url}`)
+        .attr('class', d => `${d.children ? 'branch' : 'leaf'}`)
+        .style('fill', d => cellColor(d.height));
 
       paths = svg.select('.links')
         .selectAll('path')
@@ -164,8 +200,7 @@ function flow() {
       paths = paths
         .enter()
         .append('path')
-        .merge(paths)
-        .attr('stroke', d => distance(d.chain.length));
+        .merge(paths);
 
       label = svg.select('.labels')
         .selectAll('text')
@@ -238,13 +273,14 @@ function flow() {
   function onNodeClick(n) {
     d3.event.stopPropagation();
 
-    d3.select('.focus').attr('class', '');
+    d3.select('.focus').classed('focus', false);
     if (!n || linkFocus === n || n === root) {
       linkFocus = null;
     } else {
-      d3.select(this).attr('class', 'focus');
+      d3.select(this).classed('focus', true);
       linkFocus = n;
     }
+    svg.select('.circles').classed('mode-highlight', !!linkFocus);
     filterLinks();
   }
 }
